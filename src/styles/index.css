@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .pitch-line {
+    @apply bg-marker-white;
+  }
+  
+  .player-token {
+    @apply absolute w-8 h-8 rounded-full bg-blue-500 border-2 border-white 
+           flex items-center justify-center text-white font-bold cursor-move
+           transition-transform hover:scale-105;
+  }
+}
