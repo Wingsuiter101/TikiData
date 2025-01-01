@@ -1,19 +1,14 @@
+
+import React from 'react';
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-    ArrowRight,
-    ArrowUpRight,
-    Circle,
-    Square,
-    Move,
-    RotateCcw,
-    Trash2,
-    LineChart
-} from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { FORMATIONS } from '../../data/formations'
 import TimelineControl from '../ui/TimelineControl';
 import { FormationSelector, SaveFormation, SavedFormations } from "../ui/FormationControl"
 import AnalysisTools from '../ui/AnalysisTools';
+import { Toolbar, TOOLS } from '../ui/Toolbar';
+import ActivityGuide from '../ui/ActivityGuide';
 
 const PLAYER_ROLES = {
     1: 'GK',
@@ -29,14 +24,6 @@ const PLAYER_ROLES = {
     11: 'RW'
 };
 
-const TOOLS = {
-    PASS: 'pass',
-    RUN: 'run',
-    ZONE: 'zone',
-    SHAPE: 'shape',
-    SELECT: 'select',
-    MEASURE: 'measure'  // Add this new tool type
-};
 
 const ARROW_STYLES = {
     pass: {
@@ -48,6 +35,24 @@ const ARROW_STYLES = {
         color: '#ffff00',
         strokeDasharray: 'none',
         className: 'h-1'
+    }
+};
+
+const getCursorStyle = (tool) => {
+    switch (tool) {
+        case TOOLS.SELECT:
+            return "cursor-default";
+        case TOOLS.PASS:
+        case TOOLS.RUN:
+            return "cursor-crosshair";
+        case TOOLS.ZONE:
+            return "cursor-crosshair";
+        case TOOLS.MEASURE:
+            return "cursor-crosshair";
+        case TOOLS.SHAPE:
+            return "cursor-pointer";
+        default:
+            return "cursor-default";
     }
 };
 
@@ -66,16 +71,25 @@ const DEFAULT_FORMATION = [
 ];
 const Player = ({ id, position, onDragStart, isSelectable }) => {
     const handleMouseDown = (e) => {
-        e.preventDefault(); // Prevent default browser behavior
-        e.stopPropagation(); // Stop event from bubbling to pitch
+        e.preventDefault();
+        e.stopPropagation();
         if (isSelectable) {
             onDragStart(id);
         }
     };
 
+    const handleTouchStart = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isSelectable) {
+            const touch = e.touches[0];
+            onDragStart(id, { clientX: touch.clientX, clientY: touch.clientY });
+        }
+    };
+
     return (
         <motion.div
-            className={`absolute w-12 h-12 flex flex-col items-center justify-center select-none
+            className={`absolute flex items-center gap-1.5 select-none
                    ${isSelectable ? 'cursor-move' : 'cursor-default'}`}
             style={{
                 left: `${position.x}%`,
@@ -84,8 +98,8 @@ const Player = ({ id, position, onDragStart, isSelectable }) => {
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
                 msUserSelect: 'none',
-                // Only enable pointer-events when the SELECT tool is active
-                pointerEvents: isSelectable ? 'auto' : 'none'
+                pointerEvents: isSelectable ? 'auto' : 'none',
+                touchAction: 'none' // Add this to prevent scrolling while dragging
             }}
             animate={{
                 left: `${position.x}%`,
@@ -98,13 +112,14 @@ const Player = ({ id, position, onDragStart, isSelectable }) => {
                 mass: 1
             }}
             onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
         >
-            <div className={`w-8 h-8 rounded-full bg-blue-500 border-2 border-white 
-                      flex items-center justify-center text-white font-bold
+            <div className={`w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-blue-500 border-[1.5px] sm:border-2 border-white 
+                      flex items-center justify-center text-white text-[10px] sm:text-base font-bold
                       ${isSelectable ? 'hover:bg-blue-600' : ''}`}>
                 {id}
             </div>
-            <div className="text-white text-xs font-medium mt-1 bg-black/50 px-1 rounded">
+            <div className="text-white text-[8px] sm:text-xs font-medium bg-black/50 px-1 rounded">
                 {PLAYER_ROLES[id]}
             </div>
         </motion.div>
@@ -114,31 +129,43 @@ const Player = ({ id, position, onDragStart, isSelectable }) => {
 const TacticalArrow = ({ start, end, type = 'pass' }) => {
     const dx = end.x - start.x;
     const dy = end.y - start.y;
-    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
     const length = Math.sqrt(dx * dx + dy * dy);
-    const style = ARROW_STYLES[type];
+
+    const defaultStyle = { className: '', color: 'black', strokeDasharray: '' };
+    const style = ARROW_STYLES[type] || defaultStyle;
 
     return (
         <div
-            className={`absolute origin-left ${style.className}`}
+            className={`absolute ${style.className}`}
             style={{
+                position: 'absolute',
                 left: `${start.x}%`,
                 top: `${start.y}%`,
+                transform: `rotate(${angle}deg)`, // Arrow line rotation
+                transformOrigin: 'left center',
                 width: `${length}%`,
+                height: '2px',
                 backgroundColor: style.color,
-                transform: `rotate(${angle}deg)`,
-                strokeDasharray: style.strokeDasharray
             }}
         >
+            {/* Arrowhead */}
             <div
-                className="absolute right-0 top-1/2 -translate-y-1/2"
-                style={{ color: style.color }}
+                className="absolute"
+                style={{
+                    position: 'absolute',
+                    right: '-2%',
+                    top: '48%',
+                    transform: 'translateY(-50%) rotate(0deg)', // Rotate only the arrowhead
+                    color: style.color,
+                }}
             >
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-6 h-6" />
             </div>
         </div>
     );
 };
+
 
 const DistanceMeasurement = ({ start, end }) => {
     const dx = end.x - start.x;
@@ -235,83 +262,63 @@ const TeamShape = ({ players }) => {
     );
 };
 
-const Toolbar = ({ activeTool, onToolSelect, onUndo, onClear }) => {
+const DrawingIndicator = ({ type, isDrawing }) => {
+    if (!isDrawing) return null;
+
+    const messages = {
+        [TOOLS.PASS]: 'Drawing Pass...',
+        [TOOLS.RUN]: 'Drawing Run...',
+        [TOOLS.ZONE]: 'Creating Zone...',
+        [TOOLS.MEASURE]: 'Measuring Distance...'
+    };
+
     return (
-        <div className="flex gap-2 mb-4 p-2 bg-gray-800 rounded-lg">
-            <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onToolSelect(TOOLS.SELECT)}
-                className={`p-2 rounded ${activeTool === TOOLS.SELECT ? 'bg-blue-500' : 'bg-gray-700'}`}
-            >
-                <Move className="w-5 h-5 text-white" />
-            </motion.button>
-            <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onToolSelect(TOOLS.PASS)}
-                className={`p-2 rounded ${activeTool === TOOLS.PASS ? 'bg-blue-500' : 'bg-gray-700'}`}
-            >
-                <ArrowRight className="w-5 h-5 text-white" />
-            </motion.button>
-            <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onToolSelect(TOOLS.RUN)}
-                className={`p-2 rounded ${activeTool === TOOLS.RUN ? 'bg-blue-500' : 'bg-gray-700'}`}
-            >
-                <ArrowUpRight className="w-5 h-5 text-white" />
-            </motion.button>
-            <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onToolSelect(TOOLS.ZONE)}
-                className={`p-2 rounded ${activeTool === TOOLS.ZONE ? 'bg-blue-500' : 'bg-gray-700'}`}
-            >
-                <Square className="w-5 h-5 text-white" />
-            </motion.button>
-            <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onToolSelect(TOOLS.SHAPE)}
-                className={`p-2 rounded ${activeTool === TOOLS.SHAPE ? 'bg-blue-500' : 'bg-gray-700'}`}
-            >
-                <LineChart className="w-5 h-5 text-white" />
-            </motion.button>
-            <div className="w-px bg-gray-600 mx-2" />
-            <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={onUndo}
-                className="p-2 rounded bg-gray-700"
-            >
-                <RotateCcw className="w-5 h-5 text-white" />
-            </motion.button>
-            <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={onClear}
-                className="p-2 rounded bg-gray-700"
-            >
-                <Trash2 className="w-5 h-5 text-white" />
-            </motion.button>
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+            {messages[type] || 'Drawing...'}
         </div>
     );
 };
 
-const Heatmap = ({ players }) => {
-    if (!players) return null;
+const Heatmap = ({
+    players = [],
+    gridSize = 4,
+    lookbackMinutes = 3,
+  }) => {
+    if (!players.length) return null;
   
+    /**
+     * Adjusted color scale with slightly lower alpha
+     */
     const getHeatColor = (frequency) => {
-      if (frequency > 0.3) {
-        return 'rgba(255, 0, 0, 0.3)';
-      } else if (frequency > 0.15) {
-        return 'rgba(255, 251, 0, 0.5)';
+      if (frequency > 0.7) {
+        return 'rgba(255, 0, 0, 0.6)';
+      } else if (frequency > 0.5) {
+        return 'rgba(255, 69, 0, 0.5)';
+      } else if (frequency > 0.3) {
+        return 'rgba(255, 165, 0, 0.4)';
+      } else if (frequency > 0.1) {
+        return 'rgba(255, 255, 0, 0.25)';
       } else {
-        return 'rgba(0, 255, 0, 0.2)';
+        return 'rgba(255, 255, 0, 0.15)';
       }
     };
   
+    /**
+     * Get frequencies of recent positions for each player
+     */
     const getPositionFrequencies = (player) => {
-      if (!player.positionHistory?.length) return [];
+      if (!Array.isArray(player.positionHistory) || player.positionHistory.length === 0) {
+        return [];
+      }
   
       const grid = {};
-      const gridSize = 2; // Made even smaller for more precise areas
+      const cutoffTime = Date.now() - lookbackMinutes * 60 * 1000;
   
-      player.positionHistory.forEach(pos => {
+      const recentPositions = player.positionHistory.filter(
+        (pos) => pos.timestamp > cutoffTime
+      );
+  
+      recentPositions.forEach((pos) => {
         const gridX = Math.floor(pos.x / gridSize) * gridSize;
         const gridY = Math.floor(pos.y / gridSize) * gridSize;
         const key = `${gridX},${gridY}`;
@@ -320,53 +327,47 @@ const Heatmap = ({ players }) => {
   
       const maxFreq = Math.max(...Object.values(grid), 1);
   
-      return Object.entries(grid).map(([pos, freq]) => {
-        const [x, y] = pos.split(',').map(Number);
+      return Object.entries(grid).map(([coords, freq]) => {
+        const [x, y] = coords.split(',').map(Number);
         return {
           x,
           y,
-          frequency: freq / maxFreq
+          frequency: freq / maxFreq,
         };
       });
     };
   
     return (
       <div className="absolute inset-0 pointer-events-none">
-        {/* Heat map layer */}
-        {players.map(player => {
+        {players.map((player) => {
           const frequencies = getPositionFrequencies(player);
+  
           return frequencies.map((pos, index) => (
             <div
               key={`${player.id}-heat-${index}`}
-              className="absolute inset-0"
+              className="absolute"
               style={{
-                background: `radial-gradient(circle at ${pos.x}% ${pos.y}%, 
-                  ${getHeatColor(pos.frequency)} 0%, 
-                  transparent 8%)`,  // Reduced from 12% to 8% for smaller heat areas
-                mixBlendMode: 'overlay'
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                // Make the radial gradient smaller (fades out by 15-20%)
+                background: `
+                  radial-gradient(
+                    circle at ${pos.x}% ${pos.y}%,
+                    ${getHeatColor(pos.frequency)} 0%,
+                    rgba(255, 255, 255, 0) 7%
+                  )
+                `,
+                mixBlendMode: 'hard-light',
               }}
             />
           ));
         })}
-  
-        {/* Current positions */}
-        {players.map((player) => (
-          player.position && (
-            <div
-              key={`current-${player.id}`}
-              className="absolute inset-0"
-              style={{
-                background: `radial-gradient(circle at ${player.position.x}% ${player.position.y}%, 
-                  rgba(255, 255, 255, 0.2) 0%, 
-                  transparent 5%)`,  // Reduced from 8% to 5%
-                mixBlendMode: 'multiply'
-              }}
-            />
-          )
-        ))}
       </div>
     );
   };
+
 const FootballPitch = () => {
     const pitchRef = useRef(null);
     const [players, setPlayers] = useState(DEFAULT_FORMATION);
@@ -394,7 +395,9 @@ const FootballPitch = () => {
         setCurrentFormation(formationName);
     };
 
-    const handleSaveFormation = (formation) => {
+    const handleSaveFormation = async (formation) => {
+        // Simulate a brief delay to show the saving state
+        await new Promise(resolve => setTimeout(resolve, 500));
         setSavedFormations([...savedFormations, formation]);
     };
 
@@ -484,6 +487,45 @@ const FootballPitch = () => {
         setDraggedPlayer(null);
     };
 
+    const handleTouchStart = (e) => {
+        e.preventDefault();
+        if (activeTool === TOOLS.MEASURE) {
+            const touch = e.touches[0];
+            const position = getMousePosition(touch);
+            setCurrentElement({
+                type: activeTool,
+                start: position,
+                end: position
+            });
+        } else {
+            handleMouseDown(e.touches[0]);
+        }
+    };
+    
+    const handleTouchMove = (e) => {
+        e.preventDefault();
+        if (activeTool === TOOLS.MEASURE && currentElement) {
+            const touch = e.touches[0];
+            const position = getMousePosition(touch);
+            setCurrentElement({
+                ...currentElement,
+                end: position
+            });
+        } else {
+            handleMouseMove(e.touches[0]);
+        }
+    };
+    
+    const handleTouchEnd = (e) => {
+        e.preventDefault();
+        if (activeTool === TOOLS.MEASURE && currentElement) {
+            setTacticalElements([...tacticalElements, currentElement]);
+            setCurrentElement(null);
+        } else {
+            handleMouseUp(e);
+        }
+    };
+
     const handleToolSelect = (tool) => {
         setActiveTool(tool);
         if (tool === TOOLS.SHAPE) {
@@ -539,91 +581,142 @@ const FootballPitch = () => {
         }
     };
 
+    const handleHeatmapClear = () => {
+        // Reset position history for all players
+        const updatedPlayers = players.map(player => ({
+            ...player,
+            positionHistory: []
+        }));
+        setPlayers(updatedPlayers);
+    };
     return (
-        <div className="w-full max-w-6xl mx-auto p-4">
-            <FormationSelector
-                onFormationSelect={handleFormationSelect}
-                currentFormation={currentFormation}
-            />
+        <div className="w-full max-w-[1920px] mx-auto p-2 sm:p-4">
+            {/* Top Formation Controls - Always Full Width */}
+            <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-">
+  <div>
+    <FormationSelector
+      onFormationSelect={handleFormationSelect}
+      currentFormation={currentFormation}
+    />
+        <SavedFormations
+      formations={savedFormations}
+      onLoad={setPlayers}
+    />
+  </div>
+  <div>
+    <SaveFormation
+      players={players}
+      onSave={handleSaveFormation}
+    />
 
-            <SaveFormation
-                players={players}
-                onSave={handleSaveFormation}
-            />
+  </div>
+</div>
 
-            <SavedFormations
-                formations={savedFormations}
-                onLoad={setPlayers}
-            />
-
-            <Toolbar
-                activeTool={activeTool}
-                onToolSelect={handleToolSelect}
-                onUndo={handleUndo}
-                onClear={handleClear}
-            />
-
-            <TimelineControl
-                onAddFrame={handleAddFrame}
-                onPlayback={handlePlaybackFrame}
-                currentFrame={currentFrame}
-                frames={frames}
-            />
-
-            <div className="mb-4">
-                <AnalysisTools
-                    players={players}
-                    tacticalElements={tacticalElements}
-                    onToolSelect={handleToolSelect}
-                    TOOLS={TOOLS}
-                    activeTool={activeTool}
-                    onHeatmapToggle={() => setShowHeatmap(!showHeatmap)}
-                />
-            </div>
-
-            <div
-                ref={pitchRef}
-                className="relative w-full bg-green-600 border-2 border-white rounded-lg shadow-xl select-none"
-                style={{
-                    paddingTop: '56.25%',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    msUserSelect: 'none'
-                }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={(e) => {
-                    handleMouseUp(e);
-                    setDraggedPlayer(null);
-                    setCurrentElement(null);
-                }}
-            >
-                {/* Pitch markings */}
+    {/* Main Content Area with Sidebars */}
+    <div className="mt-6 grid grid-cols-1 lg:grid-cols-[280px_1fr_280px] gap-4">
+      {/* Left Sidebar - Toolbar */}
+      <div className="order-1 lg:order-1">
+      <div className="lg:sticky lg:top-4 lg:ml-auto lg:w-[150px]">
+      <Toolbar
+      activeTool={activeTool}
+      onToolSelect={handleToolSelect}
+      onUndo={handleUndo}
+      onClear={handleClear}
+    />
+    <div className="mt-2">
+      <ActivityGuide />
+    </div>
+  </div>
+</div>
+           {/* Center - Football Pitch */}
+           <div className="order-1 lg:order-2">
+               {/* Your existing pitch div with all its content */}
+               <div
+                   ref={pitchRef}
+                   className={`relative w-full bg-green-600 border-2 border-white rounded-lg shadow-xl select-none ${getCursorStyle(activeTool)}`}
+                   style={{
+                       paddingTop: '56.25%',
+                       userSelect: 'none',
+                       WebkitUserSelect: 'none',
+                       msUserSelect: 'none',
+                       touchAction: 'none'
+                   }}
+                   onMouseDown={handleMouseDown}
+                   onMouseMove={handleMouseMove}
+                   onMouseUp={handleMouseUp}
+                   onMouseLeave={(e) => {
+                       handleMouseUp(e);
+                       setDraggedPlayer(null);
+                       setCurrentElement(null);
+                   }}
+   // For TouchStart, add touch-specific drawing initialization:
+   onTouchStart={(e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    if ([TOOLS.PASS, TOOLS.RUN, TOOLS.ZONE].includes(activeTool)) {
+        const position = getMousePosition(touch);
+        setCurrentElement({
+            type: activeTool,
+            start: position,
+            end: position
+        });
+    } else if (activeTool === TOOLS.MEASURE) {
+        const position = getMousePosition(touch);
+        setCurrentElement({
+            type: activeTool,
+            start: position,
+            end: position
+        });
+    } else {
+        handleMouseDown(touch);
+    }
+}}
+// For TouchMove, add smooth drawing updates:
+onTouchMove={(e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    if ([TOOLS.PASS, TOOLS.RUN, TOOLS.ZONE, TOOLS.MEASURE].includes(activeTool) && currentElement) {
+        const position = getMousePosition(touch);
+        setCurrentElement({
+            ...currentElement,
+            end: position
+        });
+    } else {
+        handleMouseMove(touch);
+    }
+}}
+// For TouchEnd, ensure proper completion of drawings:
+onTouchEnd={(e) => {
+    e.preventDefault();
+    if ([TOOLS.PASS, TOOLS.RUN, TOOLS.ZONE, TOOLS.MEASURE].includes(activeTool) && currentElement) {
+        setTacticalElements([...tacticalElements, currentElement]);
+        setCurrentElement(null);
+    }
+    handleMouseUp(e);
+    setDraggedPlayer(null);
+}}
+>
+                {/* Pitch Markings */}
                 <div className="absolute inset-0">
-                    {/* Center circle */}
-                    <div className="absolute left-1/2 top-1/2 w-32 h-32 border-2 border-white rounded-full transform -translate-x-1/2 -translate-y-1/2" />
+                    {/* Center Circle */}
+<div className="absolute left-1/2 top-1/2 w-[20vmin] h-[20vmin] border-2 border-white rounded-full transform -translate-x-1/2 -translate-y-1/2" />
 
-                    {/* Center line */}
-                    <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white transform -translate-x-1/2" />
+{/* Left Penalty Area */}
+<div className="absolute left-0 top-1/2 h-[30vmin] w-[20vmin] border-2 border-white transform -translate-y-1/2" />
+<div className="absolute left-0 top-1/2 h-[15vmin] w-[10vmin] border-2 border-white transform -translate-y-1/2" />
 
-                    {/* Left penalty area */}
-                    <div className="absolute left-0 top-1/2 h-48 w-32 border-2 border-white transform -translate-y-1/2" />
-                    <div className="absolute left-0 top-1/2 h-24 w-12 border-2 border-white transform -translate-y-1/2" />
+{/* Right Penalty Area */}
+<div className="absolute right-0 top-1/2 h-[30vmin] w-[20vmin] border-2 border-white transform -translate-y-1/2" />
+<div className="absolute right-0 top-1/2 h-[15vmin] w-[10vmin] border-2 border-white transform -translate-y-1/2" />
 
-                    {/* Right penalty area */}
-                    <div className="absolute right-0 top-1/2 h-48 w-32 border-2 border-white transform -translate-y-1/2" />
-                    <div className="absolute right-0 top-1/2 h-24 w-12 border-2 border-white transform -translate-y-1/2" />
-
-                    {/* Corner arcs */}
-                    <div className="absolute left-0 top-0 w-8 h-8 border-r-2 border-white rounded-br-full" />
-                    <div className="absolute right-0 top-0 w-8 h-8 border-l-2 border-white rounded-bl-full" />
-                    <div className="absolute left-0 bottom-0 w-8 h-8 border-r-2 border-white rounded-tr-full" />
-                    <div className="absolute right-0 bottom-0 w-8 h-8 border-l-2 border-white rounded-tl-full" />
+{/* Corner Arcs */}
+<div className="absolute left-0 top-0 w-[5vmin] h-[5vmin] border-r-2 border-white rounded-br-full" />
+<div className="absolute right-0 top-0 w-[5vmin] h-[5vmin] border-l-2 border-white rounded-bl-full" />
+<div className="absolute left-0 bottom-0 w-[5vmin] h-[5vmin] border-r-2 border-white rounded-tr-full" />
+<div className="absolute right-0 bottom-0 w-[5vmin] h-[5vmin] border-l-2 border-white rounded-tl-full" />
                 </div>
 
                 {/* Tactical Elements */}
-                
                 <AnimatePresence>
                     {tacticalElements.map((element, index) => {
                         if (element.type === TOOLS.ZONE) {
@@ -684,8 +777,10 @@ const FootballPitch = () => {
 
                 {/* Team Shape */}
                 {showTeamShape && <TeamShape players={players} />}
+
                 {/* Heatmap Layer */}
                 {showHeatmap && <Heatmap players={players} />}
+
                 {/* Players */}
                 <AnimatePresence>
                     {players.map(player => (
@@ -698,10 +793,42 @@ const FootballPitch = () => {
                         />
                     ))}
                 </AnimatePresence>
+
+                {/* Drawing Indicator */}
+                <DrawingIndicator
+                    type={currentElement?.type}
+                    isDrawing={Boolean(currentElement)}
+                />
+            </div>
+
+           </div>
+
+           {/* Right Sidebar - Analysis Tools */}
+           <div className="order-3">
+           <div className="lg:sticky lg:top-4 mr-auto lg:w-[150px]">
+           <AnalysisTools 
+            players={players} 
+            tacticalElements={tacticalElements} 
+            onToolSelect={handleToolSelect} 
+            TOOLS={TOOLS} 
+            activeTool={activeTool} 
+            onHeatmapToggle={() => setShowHeatmap(!showHeatmap)} 
+            onHeatmapClear={handleHeatmapClear} 
+        /> 
+    </div> 
+           </div>
+       </div>
+
+       <div className=" mt-3 max-w-5xl mx-auto bg-gray-900 rounded-xl p-2 sm:p-3 lg:p-4 lg:mt-0">
+       <TimelineControl
+                    onAddFrame={handleAddFrame}
+                    onPlayback={handlePlaybackFrame}
+                    currentFrame={currentFrame}
+                    frames={frames}
+                />
             </div>
         </div>
     );
-
-}
+};
 
 export default FootballPitch

@@ -50,90 +50,89 @@ const TimelineControl = ({ onAddFrame, onPlayback, currentFrame, frames }) => {
   };
 
   return (
-    <div className="w-full bg-gray-800 p-4 rounded-lg mt-4">
-      {/* Timeline frames */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-        {frames.map((frame, index) => (
-          <button
-            key={index}
-            onClick={() => handleFrameClick(index)}
-            className={`flex-shrink-0 w-16 h-16 rounded border-2 
-              ${currentFrame === index ? 'border-blue-500' : 'border-gray-600'}
-              bg-gray-700 hover:bg-gray-600 transition-colors`}
-          >
-            <div className="text-white text-center mt-2">
-              {index + 1}
-            </div>
-          </button>
-        ))}
+    <div className="w-full bg-gray-900 p-1 rounded-lg mt-2">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-white text-lg font-semibold">Timeline Control</h2>
         
-        <button
-          onClick={() => {
-            setIsPlaying(false);
-            onAddFrame();
-          }}
-          className="flex-shrink-0 w-16 h-16 rounded border-2 border-gray-600
-                     bg-gray-700 hover:bg-gray-600 transition-colors
-                     flex items-center justify-center"
-        >
-          <Plus className="w-6 h-6 text-white" />
-        </button>
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <button
-            onClick={handleSkipBack}
-            className={`p-2 rounded transition-colors ${
-              frames.length === 0 
-                ? 'bg-gray-600 cursor-not-allowed' 
-                : 'bg-gray-700 hover:bg-gray-600'
-            }`}
-            disabled={frames.length === 0}
-          >
-            <SkipBack className="w-5 h-5 text-white" />
-          </button>
-          
-          <button
-            onClick={handlePlayPause}
-            className={`p-2 rounded transition-colors ${
-              frames.length === 0 
-                ? 'bg-gray-600 cursor-not-allowed' 
-                : 'bg-gray-700 hover:bg-gray-600'
-            }`}
-            disabled={frames.length === 0}
-          >
-            {isPlaying ? 
-              <Pause className="w-5 h-5 text-white" /> : 
-              <Play className="w-5 h-5 text-white" />
-            }
-          </button>
-          
-          <button
-            onClick={handleSkipForward}
-            className={`p-2 rounded transition-colors ${
-              frames.length === 0 
-                ? 'bg-gray-600 cursor-not-allowed' 
-                : 'bg-gray-700 hover:bg-gray-600'
-            }`}
-            disabled={frames.length === 0}
-          >
-            <SkipForward className="w-5 h-5 text-white" />
-          </button>
-        </div>
-
-        {/* Playback speed control */}
         <select
           value={playbackSpeed}
           onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-          className="bg-gray-700 text-white p-2 rounded"
+          className="bg-gray-800 text-white py-1 px-2 rounded text-sm"
           disabled={frames.length === 0}
         >
           <option value={0.5}>0.5x</option>
           <option value={1}>1x</option>
           <option value={2}>2x</option>
         </select>
+      </div>
+
+<div className="flex gap-2 mb-3 overflow-x-auto px-2 py-1.5 -mx-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+    {frames.map((frame, index) => (
+        <button
+            key={index}
+            onClick={() => handleFrameClick(index)}
+            className={`flex-shrink-0 w-14 h-14 rounded border snap-start
+                ${currentFrame === index ? 'border-blue-500' : 'border-gray-700'}
+                bg-gray-800 hover:bg-gray-700 transition-colors touch-manipulation`}
+        >
+            <div className="text-white text-center mt-2 text-sm">
+                {index + 1}
+            </div>
+        </button>
+    ))}
+    
+    <button
+        onClick={() => {
+            setIsPlaying(false);
+            onAddFrame();
+        }}
+        className="flex-shrink-0 w-14 h-14 rounded border border-gray-700
+                   bg-gray-800 hover:bg-gray-700 transition-colors
+                   flex items-center justify-center snap-start touch-manipulation"
+    >
+        <Plus className="w-6 h-6 text-white" />
+    </button>
+</div>
+
+      <div className="flex items-center justify-start gap-2">
+        <button
+          onClick={handleSkipBack}
+          className={`p-4 rounded transition-colors ${
+            frames.length === 0 
+              ? 'bg-gray-800 cursor-not-allowed' 
+              : 'bg-gray-800 hover:bg-gray-700'
+          }`}
+          disabled={frames.length === 0}
+        >
+          <SkipBack className="w-4 h-4 text-white" />
+        </button>
+        
+        <button
+          onClick={handlePlayPause}
+          className={`p-4 rounded transition-colors ${
+            frames.length === 0 
+              ? 'bg-gray-800 cursor-not-allowed' 
+              : 'bg-gray-800 hover:bg-gray-700'
+          }`}
+          disabled={frames.length === 0}
+        >
+          {isPlaying ? 
+            <Pause className="w-4 h-4 text-white" /> : 
+            <Play className="w-4 h-4 text-white" />
+          }
+        </button>
+        
+        <button
+          onClick={handleSkipForward}
+          className={`p-4 rounded transition-colors ${
+            frames.length === 0 
+              ? 'bg-gray-800 cursor-not-allowed' 
+              : 'bg-gray-800 hover:bg-gray-700'
+          }`}
+          disabled={frames.length === 0}
+        >
+          <SkipForward className="w-4 h-4 text-white" />
+        </button>
       </div>
     </div>
   );

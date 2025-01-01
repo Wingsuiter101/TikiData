@@ -1,153 +1,168 @@
-import React, { useState, useEffect } from 'react';
-import { Ruler, Activity, Target } from 'lucide-react'; // Add back Target icon
+import React, { useState } from 'react';
+import { Ruler, Activity, Target, Maximize2, ArrowDownUp, Users, RefreshCw } from 'lucide-react';
+import { 
+    Tooltip, 
+    TooltipContent, 
+    TooltipProvider, 
+    TooltipTrigger 
+} from "./tooltip"
 
-const AnalysisTools = ({ 
-  players, 
-  tacticalElements, 
-  onToolSelect, 
-  TOOLS,
-  activeTool,
-  onHeatmapToggle  // Add this prop back
+const ToolButton = ({ icon: Icon, label, onClick, isActive }) => (
+    <TooltipProvider delayDuration={300}>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <button
+                    onClick={onClick}
+                    className={`p-4 lg:p-5 gap-2 flex items-center justify-center rounded-lg transition-all
+                        ${isActive ? 'bg-blue-500' : 'bg-gray-700 hover:bg-gray-600'}`}
+                >
+                    <Icon className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+                </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="bg-gray-800 text-white px-2 py-1 rounded-lg text-xs">
+                {label}
+            </TooltipContent>
+        </Tooltip>
+    </TooltipProvider>
+);
+
+const MetricButton = ({ icon: Icon, label, value, onClick }) => (
+    <TooltipProvider delayDuration={300}>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <button
+                    onClick={onClick}
+                    className="w-full flex items-center gap-2 p-2 lg:p-3 rounded-lg transition-all bg-gray-700/50 hover:bg-gray-700 border border-gray-700"
+                >
+                    <Icon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-400" />
+                    <div className="text-left flex-1">
+                        <div className="text-white text-xs lg:text-sm font-medium">{value}</div>
+                        <div className="text-gray-400 text-[10px] lg:text-xs">{label}</div>
+                    </div>
+                </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="bg-gray-800 text-white px-2 py-1 rounded-lg text-xs">
+                {label}
+            </TooltipContent>
+        </Tooltip>
+    </TooltipProvider>
+);
+
+const AnalysisTools = ({
+    players,
+    tacticalElements,
+    onToolSelect,
+    TOOLS,
+    activeTool,
+    onHeatmapToggle,
+    onHeatmapClear
 }) => {
-  const [showDistances, setShowDistances] = useState(false);
-  const [showPlayerStats, setShowPlayerStats] = useState(false);
-  const [showHeatmap, setShowHeatmap] = useState(false); 
-  const [playerStats, setPlayerStats] = useState({});
-  // Add state for heatmap
+    const [showPlayerStats, setShowPlayerStats] = useState(false);
+    const [showHeatmap, setShowHeatmap] = useState(false);
 
-  // Calculate player statistics based on their movements and actions
-  useEffect(() => {
-    const stats = players.reduce((acc, player) => {
-      // Count passes and runs involving this player
-      const passesMade = tacticalElements.filter(
-        el => el.type === 'pass' && 
-        isPlayerNearPoint(player.position, el.start)
-      ).length;
-
-      const runsCount = tacticalElements.filter(
-        el => el.type === 'run' && 
-        isPlayerNearPoint(player.position, el.start)
-      ).length;
-
-      acc[player.id] = {
-        passesMade,
-        runsCount,
-        avgPosition: player.position,
-      };
-      return acc;
-    }, {});
-
-    setPlayerStats(stats);
-  }, [players, tacticalElements]);
-
-  // Helper function to check if a player is near a point
-  const isPlayerNearPoint = (playerPos, point) => {
-    const dx = playerPos.x - point.x;
-    const dy = playerPos.y - point.y;
-    return Math.sqrt(dx * dx + dy * dy) < 5; // 5% of pitch size as threshold
-  };
-
-  // Calculate team shape metrics
-  const calculateTeamShape = () => {
-    const xPositions = players.map(p => p.position.x);
-    const yPositions = players.map(p => p.position.y);
-    
-    return {
-      width: (Math.max(...yPositions) - Math.min(...yPositions)).toFixed(1),
-      depth: (Math.max(...xPositions) - Math.min(...xPositions)).toFixed(1),
-      compactness: calculateCompactness()
+    const handleHeatmapToggle = () => {
+        setShowHeatmap(!showHeatmap);
+        onHeatmapToggle();
     };
-  };
 
-  const calculateCompactness = () => {
-    let totalDistance = 0;
-    let count = 0;
-    
-    for (let i = 0; i < players.length; i++) {
-      for (let j = i + 1; j < players.length; j++) {
-        const dx = players[i].position.x - players[j].position.x;
-        const dy = players[i].position.y - players[j].position.y;
-        totalDistance += Math.sqrt(dx * dx + dy * dy);
-        count++;
-      }
-    }
-    
-    return (totalDistance / count).toFixed(1);
-  };
+    // Calculate team metrics
+    const metrics = (() => {
+        const xPositions = players.map(p => p.position.x);
+        const yPositions = players.map(p => p.position.y);
+        
+        const width = Math.max(...yPositions) - Math.min(...yPositions);
+        const depth = Math.max(...xPositions) - Math.min(...xPositions);
+        
+        const defenders = players.filter(p => p.position.x < 35);
+        const midfielders = players.filter(p => p.position.x >= 35 && p.position.x < 65);
+        const forwards = players.filter(p => p.position.x >= 65);
 
-  const handleRulerClick = () => {
-    onToolSelect(activeTool === TOOLS.MEASURE ? TOOLS.SELECT : TOOLS.MEASURE);
-  };
+        return {
+            width: width.toFixed(1),
+            depth: depth.toFixed(1),
+            formation: `${defenders.length}-${midfielders.length}-${forwards.length}`
+        };
+    })();
 
-  const shape = calculateTeamShape();
-
-  const handleHeatmapToggle = () => {
-    setShowHeatmap(!showHeatmap);
-    onHeatmapToggle();
-  };
-
-  return (
-    <div className="flex flex-col gap-4 bg-gray-800 p-4 rounded-lg">
-      <div className="flex gap-2">
-        <button
-          onClick={handleRulerClick}
-          className={`p-2 rounded ${activeTool === TOOLS.MEASURE ? 'bg-blue-500' : 'bg-gray-700'}`}
-          title="Measure Distance"
-        >
-          <Ruler className="w-5 h-5 text-white" />
-        </button>
-        <button
-          onClick={() => setShowPlayerStats(!showPlayerStats)}
-          className={`p-2 rounded ${showPlayerStats ? 'bg-blue-500' : 'bg-gray-700'}`}
-          title="Show Player Stats"
-        >
-          <Activity className="w-5 h-5 text-white" />
-        </button>
-        <button
-          onClick={handleHeatmapToggle}
-          className={`p-2 rounded ${showHeatmap ? 'bg-blue-500' : 'bg-gray-700'}`}
-          title="Toggle Heatmap"
-        >
-          <Target className="w-5 h-5 text-white" />
-        </button>
-      </div>
-
-      {/* Formation Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-gray-700 p-3 rounded">
-          <div className="text-xs text-gray-400">Width</div>
-          <div className="text-white font-medium">{shape.width}m</div>
-        </div>
-        <div className="bg-gray-700 p-3 rounded">
-          <div className="text-xs text-gray-400">Depth</div>
-          <div className="text-white font-medium">{shape.depth}m</div>
-        </div>
-        <div className="bg-gray-700 p-3 rounded">
-          <div className="text-xs text-gray-400">Compactness</div>
-          <div className="text-white font-medium">{shape.compactness}</div>
-        </div>
-      </div>
-
-      {/* Player Stats Panel */}
-      {showPlayerStats && (
-        <div className="bg-gray-700 p-3 rounded mt-2">
-          <h3 className="text-white font-medium mb-2">Player Actions</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {Object.entries(playerStats).map(([playerId, stats]) => (
-              <div key={playerId} className="text-sm text-gray-200">
-                Player {playerId}:
-                <div className="text-xs text-gray-400">
-                  Passes: {stats.passesMade}
-                  <br />
-                  Runs: {stats.runsCount}
+    return (
+        <div className="p-2 lg:p-3 bg-gray-800 rounded-xl shadow-lg space-y-2 lg:space-y-4">
+            {/* Quick Tips Section */}
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg px-2 py-1.5 lg:px-3 lg:py-2">
+                <div className="flex flex-wrap lg:flex-col text-[10px] lg:text-xs text-blue-200/80">
+                    <span className="font-semibold mr-1 lg:mr-0 lg:mb-1">Tips:</span>
+                    <div className="flex flex-wrap lg:flex-col lg:space-y-1">
+                        <span>V: Select</span>
+                        <span className="ml-2 lg:ml-0">P: Pass</span>
+                        <span className="ml-2 lg:ml-0">R: Run</span>
+                        <span className="ml-2 lg:ml-0">Z: Zone</span>
+                        <span className="ml-2 lg:ml-0">S: Shape</span>
+                        <span className="ml-2 lg:ml-0">M: Measure</span>
+                    </div>
                 </div>
-              </div>
-            ))}
-          </div>
+            </div>
+
+            {/* Tools Grid */}
+            <div className="grid grid-cols-3 lg:grid-cols-1 gap-1.5 lg:gap-2">
+                <ToolButton
+                    icon={Ruler}
+                    label="Measure Tool"
+                    onClick={() => onToolSelect(activeTool === TOOLS.MEASURE ? TOOLS.SELECT : TOOLS.MEASURE)}
+                    isActive={activeTool === TOOLS.MEASURE}
+                />
+                <ToolButton
+                    icon={Activity}
+                    label="Player Stats"
+                    onClick={() => setShowPlayerStats(!showPlayerStats)}
+                    isActive={showPlayerStats}
+                />
+                <ToolButton
+                    icon={Target}
+                    label="Movement Heatmap"
+                    onClick={handleHeatmapToggle}
+                    isActive={showHeatmap}
+                />
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-3 lg:grid-cols-1 gap-1.5 lg:gap-2">
+                <MetricButton
+                    icon={Maximize2}
+                    label="Team Width"
+                    value={`${metrics.width}m`}
+                />
+                <MetricButton
+                    icon={ArrowDownUp}
+                    label="Team Depth"
+                    value={`${metrics.depth}m`}
+                />
+                <MetricButton
+                    icon={Users}
+                    label="Formation"
+                    value={metrics.formation}
+                />
+            </div>
+
+            {/* Player Stats Panel */}
+            {showPlayerStats && (
+                <div className="mt-2 pt-2 lg:mt-3 lg:pt-3 border-t border-gray-700">
+                    <div className="grid grid-cols-3 lg:grid-cols-1 gap-1.5 lg:gap-2">
+                        {players.map(player => (
+                            <div key={player.id} className="bg-gray-700 p-1.5 lg:p-2 rounded">
+                                <div className="flex items-center gap-1">
+                                    <div className="w-3 h-3 lg:w-4 lg:h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[0.6rem] lg:text-[0.7rem]">
+                                        {player.id}
+                                    </div>
+                                    <span className="text-gray-200 text-[10px] lg:text-xs">
+                                        {PLAYER_ROLES[player.id]}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 };
 
 export default AnalysisTools;
