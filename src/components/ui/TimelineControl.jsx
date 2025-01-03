@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Plus } from 'lucide-react';
 
-const TimelineControl = ({ onAddFrame, onPlayback, currentFrame, frames }) => {
+const TimelineControl = ({ onAddFrame, onPlayback, currentFrame, frames, players, tacticalElements, onUpdateFrame }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
+  // Save current state to frame before advancing
   const advanceFrame = useCallback(() => {
+    // First update the current frame with latest state
+    onUpdateFrame(currentFrame, {
+      players: players,
+      tacticalElements: tacticalElements
+    });
+    
     const nextFrame = (currentFrame + 1) % frames.length;
     onPlayback(nextFrame);
     
@@ -13,7 +20,7 @@ const TimelineControl = ({ onAddFrame, onPlayback, currentFrame, frames }) => {
     if (nextFrame === 0) {
       setIsPlaying(false);
     }
-  }, [currentFrame, frames.length, onPlayback]);
+  }, [currentFrame, frames.length, onPlayback, onUpdateFrame, players, tacticalElements]);
 
   useEffect(() => {
     let intervalId = null;
@@ -35,18 +42,43 @@ const TimelineControl = ({ onAddFrame, onPlayback, currentFrame, frames }) => {
   };
 
   const handleSkipBack = () => {
+    // Save current state before skipping
+    onUpdateFrame(currentFrame, {
+      players: players,
+      tacticalElements: tacticalElements
+    });
     setIsPlaying(false);
     onPlayback(0);
   };
 
   const handleSkipForward = () => {
+    // Save current state before skipping
+    onUpdateFrame(currentFrame, {
+      players: players,
+      tacticalElements: tacticalElements
+    });
     setIsPlaying(false);
     onPlayback(Math.max(0, frames.length - 1));
   };
 
   const handleFrameClick = (index) => {
+    // Save current state before switching frames
+    onUpdateFrame(currentFrame, {
+      players: players,
+      tacticalElements: tacticalElements
+    });
     setIsPlaying(false);
     onPlayback(index);
+  };
+
+  const handleAddNewFrame = () => {
+    // Save current state before adding new frame
+    onUpdateFrame(currentFrame, {
+      players: players,
+      tacticalElements: tacticalElements
+    });
+    setIsPlaying(false);
+    onAddFrame();
   };
 
   return (
@@ -66,33 +98,30 @@ const TimelineControl = ({ onAddFrame, onPlayback, currentFrame, frames }) => {
         </select>
       </div>
 
-<div className="flex gap-2 mb-3 overflow-x-auto px-2 py-1.5 -mx-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-    {frames.map((frame, index) => (
-        <button
+      <div className="flex gap-2 mb-3 overflow-x-auto px-2 py-1.5 -mx-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+        {frames.map((frame, index) => (
+          <button
             key={index}
             onClick={() => handleFrameClick(index)}
             className={`flex-shrink-0 w-14 h-14 rounded border snap-start
-                ${currentFrame === index ? 'border-blue-500' : 'border-gray-700'}
-                bg-gray-800 hover:bg-gray-700 transition-colors touch-manipulation`}
-        >
+              ${currentFrame === index ? 'border-blue-500' : 'border-gray-700'}
+              bg-gray-800 hover:bg-gray-700 transition-colors touch-manipulation`}
+          >
             <div className="text-white text-center mt-2 text-sm">
-                {index + 1}
+              {index + 1}
             </div>
+          </button>
+        ))}
+        
+        <button
+          onClick={handleAddNewFrame}
+          className="flex-shrink-0 w-14 h-14 rounded border border-gray-700
+            bg-gray-800 hover:bg-gray-700 transition-colors
+            flex items-center justify-center snap-start touch-manipulation"
+        >
+          <Plus className="w-6 h-6 text-white" />
         </button>
-    ))}
-    
-    <button
-        onClick={() => {
-            setIsPlaying(false);
-            onAddFrame();
-        }}
-        className="flex-shrink-0 w-14 h-14 rounded border border-gray-700
-                   bg-gray-800 hover:bg-gray-700 transition-colors
-                   flex items-center justify-center snap-start touch-manipulation"
-    >
-        <Plus className="w-6 h-6 text-white" />
-    </button>
-</div>
+      </div>
 
       <div className="flex items-center justify-start gap-2">
         <button

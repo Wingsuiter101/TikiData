@@ -87,35 +87,50 @@ const Toolbar = ({ activeTool, onToolSelect, onUndo, onClear }) => {
 
     useEffect(() => {
         const handleKeyPress = (e) => {
-            if (e.target.tagName === 'INPUT') return;
-
+            // Ignore if user is typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
             const key = e.key.toUpperCase();
             const tool = tools.find(t => t.shortcut === key);
+            
             if (tool) {
-                onToolSelect(tool.type);
+                // For shape tool, toggle it off if it's already active
+                if (tool.type === TOOLS.SHAPE && activeTool === TOOLS.SHAPE) {
+                    onToolSelect(TOOLS.SELECT);
+                } else {
+                    onToolSelect(tool.type);
+                }
             }
         };
 
         window.addEventListener('keypress', handleKeyPress);
         return () => window.removeEventListener('keypress', handleKeyPress);
-    }, [onToolSelect, tools]);
+    }, [onToolSelect, tools, activeTool]);
 
     return (
         <div className="bg-gray-800 rounded-xl shadow-lg p-2 lg:p-3">
             <div className="grid grid-cols-7 lg:grid-cols-1 gap-1.5 lg:gap-2">
-                {/* Main Tools */}
+                {/* Tools */}
                 {tools.map((tool) => (
                     <ToolButton
                         key={tool.type}
                         icon={tool.icon}
                         label={tool.label}
                         active={activeTool === tool.type}
-                        onClick={() => onToolSelect(tool.type)}
+                        onClick={() => {
+                            // For shape tool, toggle it off if it's already active
+                            if (tool.type === TOOLS.SHAPE && activeTool === TOOLS.SHAPE) {
+                                onToolSelect(TOOLS.SELECT);
+                            } else {
+                                onToolSelect(tool.type);
+                            }
+                        }}
                         shortcut={tool.shortcut}
                     />
                 ))}
-                                {/* Desktop Divider */}
-                                <div className="hidden lg:block h-px w-full bg-gray-700 col-span-1" />
+
+                {/* Desktop Divider */}
+                <div className="hidden lg:block h-px w-full bg-gray-700 col-span-1" />
 
                 {/* Action Buttons */}
                 <ToolButton
@@ -130,11 +145,8 @@ const Toolbar = ({ activeTool, onToolSelect, onUndo, onClear }) => {
                     onClick={onClear}
                     shortcut="⌘⌫"
                 />
-                
-
             </div>
         </div>
     );
 };
-
 export { Toolbar, ToolButton, TOOLS };

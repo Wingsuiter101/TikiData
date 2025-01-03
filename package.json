@@ -20,6 +20,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^11.15.0",
     "install": "^0.13.0",
+    "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
     "npm": "^11.0.0",
     "postcss": "^8.4.49",
